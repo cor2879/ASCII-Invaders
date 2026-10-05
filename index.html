@@ -31,7 +31,7 @@ canvas, #touch-controls, #touch-controls * {
 </head>
 <body data-id="0">
 <app-icon data-id="1" hidden data-icon="zap" data-palette="Dark"></app-icon>
-<canvas data-id="2" id="c"></canvas>
+<canvas data-id="2" id="c" tabindex="0" aria-label="ASCII Invaders game"></canvas>
 <div id="touch-controls" aria-label="Game controls">
 <div class="row"><label id="steering-label" for="steering">STEER <input id="steering" type="range" min="30" max="870" value="450" aria-label="Ship position"></label><button data-hold="Space" id="fire-button">FIRE</button></div>
 <div class="row"><button id="power">POWER</button><button id="switch">SWITCH</button><button id="dash">DASH</button><button id="pause">PAUSE</button></div>
@@ -87,7 +87,9 @@ function drawStars(){stars.forEach(function(s){ctx.globalAlpha=0.6;ctx.fillStyle
 
 // Input
 var keys={},mouseX=W/2,mouseDown=false,qDown=false,eDown=false,shiftDown=false,pDown=false;
+var gameKeys=['KeyA','KeyD','KeyQ','KeyE','KeyP','Escape','Enter','Digit1','Digit2','Digit3','Space','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','ShiftLeft','ShiftRight'];
 document.addEventListener('keydown',function(e){
+  if(gameKeys.indexOf(e.code)>=0){e.preventDefault();canvas.focus({preventScroll:true});}
   keys[e.code]=true;
   if(e.code==='KeyQ'&&!qDown){qDown=true;if(gameState==='PLAYING')cycleAbility();}
   if(e.code==='KeyE'&&!eDown){eDown=true;if(gameState==='PLAYING')useAbility();}
@@ -122,7 +124,7 @@ steering.addEventListener('pointermove',function(e){if(e.pointerId===steeringPoi
 steering.addEventListener('input',function(){steeringTarget=Number(steering.value);if(gameState==='PLAYING')player.x=steeringTarget;});
 function pointerPosition(e){var r=canvas.getBoundingClientRect();return {x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height};}
 canvas.addEventListener('pointerdown',function(e){
-  e.preventDefault();if(canvasPointerId!==null)return;canvasPointerId=e.pointerId;canvas.setPointerCapture(e.pointerId);
+  e.preventDefault();canvas.focus({preventScroll:true});if(canvasPointerId!==null)return;canvasPointerId=e.pointerId;canvas.setPointerCapture(e.pointerId);
   var pos=pointerPosition(e);
   if(gameState==='UPGRADE_SELECT'){checkUpgradeClick(pos.x,pos.y);return;}
   if(gameState==='PAUSED'){gameState='PLAYING';return;}
