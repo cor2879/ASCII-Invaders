@@ -24,15 +24,18 @@ canvas, #touch-controls, #touch-controls * {
 @media (pointer:coarse) { #touch-controls {display:block;} footer {position:static; padding:4px;} }
 #music-toggle { position:fixed; right:10px; top:10px; z-index:5; padding:10px; color:#00ffff; background:#071826; border:1px solid #00aaaa; border-radius:8px; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
 @media (pointer:coarse) { #music-toggle {position:static; margin:4px;} }
+#steering-label { flex:3; min-width:0; display:flex; flex-direction:column; justify-content:center; color:#00ffff; font:bold 12px monospace; gap:4px; padding:0 10px; }
+#steering { width:100%; height:44px; margin:0; accent-color:#00ffff; cursor:pointer; touch-action:none; }
+#fire-button { flex:1; }
 </style>
 </head>
 <body data-id="0">
 <app-icon data-id="1" hidden data-icon="zap" data-palette="Dark"></app-icon>
 <canvas data-id="2" id="c"></canvas>
 <div id="touch-controls" aria-label="Game controls">
-<div class="row"><button data-hold="ArrowLeft" aria-label="Move left">◀</button><button data-hold="Space">FIRE</button><button data-hold="ArrowRight" aria-label="Move right">▶</button></div>
+<div class="row"><label id="steering-label" for="steering">STEER <input id="steering" type="range" min="30" max="870" value="450" aria-label="Ship position"></label><button data-hold="Space" id="fire-button">FIRE</button></div>
 <div class="row"><button id="power">POWER</button><button id="switch">SWITCH</button><button id="dash">DASH</button><button id="pause">PAUSE</button></div>
-<p>Drag on the game to move and fire. Tap an upgrade to choose it.</p>
+<p>Slide to steer. Hold FIRE to shoot. Tap an upgrade to choose it.</p>
 </div>
 <button id="music-toggle" aria-label="Toggle music" aria-pressed="true">MUSIC: ON</button>
 <footer data-id="3">Made by Copilot</footer>
@@ -102,6 +105,21 @@ document.addEventListener('keyup',function(e){
   if(e.code==='KeyP'||e.code==='Escape')pDown=false;
 });
 var pointerActive=false,canvasPointerId=null;
+var steering=document.getElementById('steering'),steeringPointer=null,steeringTarget=W/2;
+function steerFromPointer(e){
+  var r=steering.getBoundingClientRect(),inset=14;
+  var fraction=clamp((e.clientX-r.left-inset)/Math.max(1,r.width-inset*2),0,1);
+  steeringTarget=30+fraction*840;steering.value=String(Math.round(steeringTarget));
+}
+steering.addEventListener('pointerdown',function(e){
+  e.preventDefault();if(steeringPointer!==null)return;
+  steeringPointer=e.pointerId;steering.setPointerCapture(e.pointerId);steerFromPointer(e);
+});
+steering.addEventListener('pointermove',function(e){if(e.pointerId===steeringPointer){e.preventDefault();steerFromPointer(e);}});
+['pointerup','pointercancel','lostpointercapture'].forEach(function(type){
+  steering.addEventListener(type,function(e){if(e.pointerId===steeringPointer)steeringPointer=null;});
+});
+steering.addEventListener('input',function(){steeringTarget=Number(steering.value);if(gameState==='PLAYING')player.x=steeringTarget;});
 function pointerPosition(e){var r=canvas.getBoundingClientRect();return {x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height};}
 canvas.addEventListener('pointerdown',function(e){
   e.preventDefault();if(canvasPointerId!==null)return;canvasPointerId=e.pointerId;canvas.setPointerCapture(e.pointerId);
@@ -135,7 +153,7 @@ bindAction('pause',function(){if(gameState==='PLAYING')gameState='PAUSED';else i
     surface.addEventListener(type,function(e){if(e.cancelable)e.preventDefault();},{passive:false});
   });
 });
-function clearInput(){keys={};releasePointer();qDown=eDown=shiftDown=pDown=false;if(gameState==='PLAYING')gameState='PAUSED';}
+function clearInput(){steeringPointer=null;keys={};releasePointer();qDown=eDown=shiftDown=pDown=false;if(gameState==='PLAYING')gameState='PAUSED';}
 window.addEventListener('blur',clearInput);
 document.addEventListener('visibilitychange',function(){if(document.hidden)clearInput();});
 
@@ -238,9 +256,11 @@ function playerDie(){
 function updatePlayer(dt){
   var moving=false;
   if(pointerActive)player.x=mouseX;
+  if(steeringPointer!==null)player.x=steeringTarget;
   if(keys['ArrowLeft']||keys['KeyA']){player.x-=player.speed*dt;moving=true;}
   if(keys['ArrowRight']||keys['KeyD']){player.x+=player.speed*dt;moving=true;}
   player.x=clamp(player.x,30,870);
+  steering.value=String(Math.round(player.x));
   if(player.invTimer>0)player.invTimer-=dt;
   if(player.phasing){player.phaseTimer-=dt;if(player.phaseTimer<=0)player.phasing=false;}
   if(player.dashCooldown>0)player.dashCooldown-=dt;
