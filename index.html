@@ -89,7 +89,9 @@ function drawStars(){stars.forEach(function(s){ctx.globalAlpha=0.6;ctx.fillStyle
 var keys={},mouseX=W/2,mouseDown=false,qDown=false,eDown=false,shiftDown=false,pDown=false;
 var gameKeys=['KeyA','KeyD','KeyQ','KeyE','KeyP','Escape','Enter','Digit1','Digit2','Digit3','Space','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','ShiftLeft','ShiftRight'];
 document.addEventListener('keydown',function(e){
-  if(gameKeys.indexOf(e.code)>=0){e.preventDefault();canvas.focus({preventScroll:true});}
+  if(e.metaKey||e.ctrlKey||e.altKey||gameKeys.indexOf(e.code)<0)return;
+  e.preventDefault();e.stopPropagation();unlockMusic();
+  // Focus is established by clicking the canvas, never changed mid-keypress.
   keys[e.code]=true;
   if(e.code==='KeyQ'&&!qDown){qDown=true;if(gameState==='PLAYING')cycleAbility();}
   if(e.code==='KeyE'&&!eDown){eDown=true;if(gameState==='PLAYING')useAbility();}
@@ -97,15 +99,16 @@ document.addEventListener('keydown',function(e){
   if((e.code==='KeyP'||e.code==='Escape')&&!pDown){pDown=true;if(gameState==='PLAYING')gameState='PAUSED';else if(gameState==='PAUSED')gameState='PLAYING';}
   if(e.code==='Enter'){if(gameState==='TITLE'||gameState==='GAME_OVER'||gameState==='VICTORY')startGame();}
   if(gameState==='UPGRADE_SELECT'){if(e.code==='Digit1')pickUpgrade(0);if(e.code==='Digit2')pickUpgrade(1);if(e.code==='Digit3')pickUpgrade(2);}
-  if(['Space','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','ShiftLeft','ShiftRight'].indexOf(e.code)>=0)e.preventDefault();
-});
+},true);
 document.addEventListener('keyup',function(e){
+  if(gameKeys.indexOf(e.code)<0)return;
+  e.preventDefault();e.stopPropagation();
   keys[e.code]=false;
   if(e.code==='KeyQ')qDown=false;
   if(e.code==='KeyE')eDown=false;
   if(e.code==='ShiftLeft'||e.code==='ShiftRight')shiftDown=false;
   if(e.code==='KeyP'||e.code==='Escape')pDown=false;
-});
+},true);
 var pointerActive=false,canvasPointerId=null;
 var steering=document.getElementById('steering'),steeringPointer=null,steeringTarget=W/2;
 function steerFromPointer(e){
