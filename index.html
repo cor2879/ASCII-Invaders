@@ -9,7 +9,14 @@
 body { background:#000; display:flex; align-items:center; justify-content:center; min-height:100dvh; flex-direction:column; overflow:auto; font-family:'Courier New',monospace; }
 canvas { border:1px solid rgba(0,255,255,0.3); display:block; image-rendering:pixelated; }
 footer { position:fixed; bottom:4px; width:100%; text-align:center; color:rgba(255,255,255,0.15); font-size:10px; }
-canvas { touch-action:none; }
+html, body { overscroll-behavior:none; }
+canvas, #touch-controls, #touch-controls * {
+  touch-action:none;
+  -webkit-user-select:none;
+  user-select:none;
+  -webkit-touch-callout:none;
+  -webkit-tap-highlight-color:transparent;
+}
 #touch-controls { display:none; width:min(900px,100%); padding:8px; gap:8px; }
 #touch-controls button { min-height:48px; flex:1; background:#071826; color:#00ffff; border:1px solid #00aaaa; border-radius:8px; font:bold 14px monospace; touch-action:none; }
 #touch-controls .row { display:flex; gap:8px; margin-bottom:8px; }
@@ -91,18 +98,18 @@ document.addEventListener('keyup',function(e){
   if(e.code==='ShiftLeft'||e.code==='ShiftRight')shiftDown=false;
   if(e.code==='KeyP'||e.code==='Escape')pDown=false;
 });
-var pointerActive=false;
+var pointerActive=false,canvasPointerId=null;
 function pointerPosition(e){var r=canvas.getBoundingClientRect();return {x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height};}
 canvas.addEventListener('pointerdown',function(e){
-  e.preventDefault();canvas.setPointerCapture(e.pointerId);
+  e.preventDefault();if(canvasPointerId!==null)return;canvasPointerId=e.pointerId;canvas.setPointerCapture(e.pointerId);
   var pos=pointerPosition(e);
   if(gameState==='UPGRADE_SELECT'){checkUpgradeClick(pos.x,pos.y);return;}
   if(gameState==='PAUSED'){gameState='PLAYING';return;}
   if(gameState==='TITLE'||gameState==='GAME_OVER'||gameState==='VICTORY')startGame();
   pointerActive=true;mouseDown=true;mouseX=clamp(pos.x,30,870);
 });
-canvas.addEventListener('pointermove',function(e){if(pointerActive){mouseX=clamp(pointerPosition(e).x,30,870);}});
-function releasePointer(){pointerActive=false;mouseDown=false;}
+canvas.addEventListener('pointermove',function(e){if(pointerActive&&e.pointerId===canvasPointerId){mouseX=clamp(pointerPosition(e).x,30,870);}});
+function releasePointer(e){if(e&&e.pointerId!==canvasPointerId)return;pointerActive=false;mouseDown=false;canvasPointerId=null;}
 canvas.addEventListener('pointerup',releasePointer);
 canvas.addEventListener('pointercancel',releasePointer);
 canvas.addEventListener('lostpointercapture',releasePointer);
@@ -110,10 +117,21 @@ document.querySelectorAll('[data-hold]').forEach(function(button){
   button.addEventListener('pointerdown',function(e){e.preventDefault();button.setPointerCapture(e.pointerId);keys[button.dataset.hold]=true;});
   ['pointerup','pointercancel','lostpointercapture'].forEach(function(type){button.addEventListener(type,function(){keys[button.dataset.hold]=false;});});
 });
-document.getElementById('power').addEventListener('click',function(){if(gameState==='PLAYING')useAbility();});
-document.getElementById('switch').addEventListener('click',function(){if(gameState==='PLAYING')cycleAbility();});
-document.getElementById('dash').addEventListener('click',function(){if(gameState==='PLAYING')tryDash();});
-document.getElementById('pause').addEventListener('click',function(){if(gameState==='PLAYING')gameState='PAUSED';else if(gameState==='PAUSED')gameState='PLAYING';});
+function bindAction(id,action){
+  var button=document.getElementById(id);
+  button.addEventListener('pointerdown',function(e){e.preventDefault();action();});
+  button.addEventListener('click',function(e){if(e.detail===0)action();});
+}
+bindAction('power',function(){if(gameState==='PLAYING')useAbility();});
+bindAction('switch',function(){if(gameState==='PLAYING')cycleAbility();});
+bindAction('dash',function(){if(gameState==='PLAYING')tryDash();});
+bindAction('pause',function(){if(gameState==='PLAYING')gameState='PAUSED';else if(gameState==='PAUSED')gameState='PLAYING';});
+// Non-passive handlers cover iOS selection and multi-touch gestures.
+[canvas,document.getElementById('touch-controls')].forEach(function(surface){
+  ['touchstart','touchmove','gesturestart','gesturechange','contextmenu','selectstart'].forEach(function(type){
+    surface.addEventListener(type,function(e){if(e.cancelable)e.preventDefault();},{passive:false});
+  });
+});
 function clearInput(){keys={};releasePointer();qDown=eDown=shiftDown=pDown=false;if(gameState==='PLAYING')gameState='PAUSED';}
 window.addEventListener('blur',clearInput);
 document.addEventListener('visibilitychange',function(){if(document.hidden)clearInput();});
