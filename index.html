@@ -22,6 +22,8 @@ canvas, #touch-controls, #touch-controls * {
 #touch-controls .row { display:flex; gap:8px; margin-bottom:8px; }
 #touch-controls p { color:#aaa; text-align:center; font-size:12px; }
 @media (pointer:coarse) { #touch-controls {display:block;} footer {position:static; padding:4px;} }
+#music-toggle { position:fixed; right:10px; top:10px; z-index:5; padding:10px; color:#00ffff; background:#071826; border:1px solid #00aaaa; border-radius:8px; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
+@media (pointer:coarse) { #music-toggle {position:static; margin:4px;} }
 </style>
 </head>
 <body data-id="0">
@@ -32,6 +34,7 @@ canvas, #touch-controls, #touch-controls * {
 <div class="row"><button id="power">POWER</button><button id="switch">SWITCH</button><button id="dash">DASH</button><button id="pause">PAUSE</button></div>
 <p>Drag on the game to move and fire. Tap an upgrade to choose it.</p>
 </div>
+<button id="music-toggle" aria-label="Toggle music" aria-pressed="true">MUSIC: ON</button>
 <footer data-id="3">Made by Copilot</footer>
 <script>
 (function(){
@@ -617,6 +620,7 @@ function loop(ts){
     var dt=Math.min((ts-lastTime)/1000,0.05);lastTime=ts;
     ctx.fillStyle='#020208';ctx.fillRect(0,0,W,H);
     blink+=dt*3;
+    syncMusic();
 
     // Shake — only apply the canvas translate when PLAYING
     var applyShake=shake.mag>0&&gameState==='PLAYING';
@@ -660,6 +664,38 @@ function loop(ts){
   }catch(err){console.error('loop:',err);}
   requestAnimationFrame(loop);
 }
+
+// Soundtrack: loaded on demand and started only after a user gesture.
+var musicEnabled=true,musicUnlocked=false,currentMusic=null;
+try{musicEnabled=localStorage.getItem('ascii_invaders_music')!=='off';}catch(e){}
+var musicTracks={};
+['title','combat','boss'].forEach(function(id){
+  var track=new Audio('audio/'+id+'.mp3');track.loop=true;track.volume=0.55;track.preload='none';musicTracks[id]=track;
+});
+var musicButton=document.getElementById('music-toggle');
+function updateMusicButton(){musicButton.textContent='MUSIC: '+(musicEnabled?'ON':'OFF');musicButton.setAttribute('aria-pressed',String(musicEnabled));}
+function syncMusic(){
+  var desired=gameState==='TITLE'||gameState==='GAME_OVER'||gameState==='VICTORY'?'title':(boss?'boss':'combat');
+  var paused=gameState==='PAUSED'||document.hidden||!musicEnabled||!musicUnlocked;
+  if(currentMusic!==desired){Object.keys(musicTracks).forEach(function(id){musicTracks[id].pause();});currentMusic=desired;musicTracks[desired].currentTime=0;}
+  var track=musicTracks[currentMusic];
+  if(paused){track.pause();return;}
+  if(track.paused&&!track._starting){
+    track._starting=true;
+    track.play().then(function(){track._starting=false;if(currentMusic!==desired||!musicEnabled||document.hidden||gameState==='PAUSED')track.pause();}).catch(function(){track._starting=false;});
+  }
+}
+function unlockMusic(){musicUnlocked=true;syncMusic();}
+document.addEventListener('pointerdown',unlockMusic);
+document.addEventListener('keydown',unlockMusic);
+musicButton.addEventListener('click',function(){
+  musicEnabled=!musicEnabled;musicUnlocked=true;
+  try{localStorage.setItem('ascii_invaders_music',musicEnabled?'on':'off');}catch(e){}
+  updateMusicButton();syncMusic();
+});
+document.addEventListener('visibilitychange',function(){syncMusic();});
+window.addEventListener('blur',function(){Object.keys(musicTracks).forEach(function(id){musicTracks[id].pause();});});
+updateMusicButton();
 
 // Init
 loadHiScore();
